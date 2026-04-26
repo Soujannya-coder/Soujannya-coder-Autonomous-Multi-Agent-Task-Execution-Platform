@@ -1,0 +1,82 @@
+openapi: 3.0.0
+
+info:
+  title: Autonomous Multi-Agent System API
+  version: 1.0.0
+  description: API for executing multi-agent workflows using Planner, Executor, Validator.
+
+servers:
+  - url: http://127.0.0.1:8000
+
+paths:
+
+  /run:
+    post:
+      summary: Run a multi-agent task
+      operationId: runTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - task
+              properties:
+                session_id:
+                  type: string
+                  example: "abc123"
+                task:
+                  type: string
+                  example: "Summarize today's AI news"
+      responses:
+        '200':
+          description: Task execution result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: SUCCESS
+                  result:
+                    type: string
+                    example: "Summary..."
+
+  /history/{session_id}:
+    get:
+      summary: Get session history
+      operationId: getHistory
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: History records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok

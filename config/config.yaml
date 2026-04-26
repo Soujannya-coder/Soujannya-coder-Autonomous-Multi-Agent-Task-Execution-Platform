@@ -1,0 +1,162 @@
+app:
+  name: autonomous-multi-agent-system
+  version: 1.0
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+model:
+  provider: local
+  name: llama3
+  temperature: 0.3
+  max_tokens: 2048
+  top_p: 0.9
+  stream: false
+
+llm_backend:
+  type: ollama
+  endpoint: http://localhost:11434
+  model_name: llama3
+
+memory:
+  type: mongodb
+  uri: mongodb://localhost:27017
+  db_name: multi_agent_db
+  collection: agent_memory
+  persist: true
+
+agents:
+
+  planner:
+    role: "Task Planner"
+    description: "Breaks user tasks into structured executable steps"
+    system_prompt: |
+      You are a STRICT planning engine.
+
+      RULES:
+      - Output ONLY valid JSON
+      - No explanations
+      - No markdown
+      - No extra text
+
+      FORMAT:
+      {
+        "steps": [
+          "step 1",
+          "step 2",
+          "step 3"
+        ]
+      }
+
+      RULES:
+      - Each step must be atomic
+      - No storytelling
+      - No assumptions
+      - No grouping of multiple actions in one step
+
+      EXAMPLE OUTPUT:
+      {
+        "steps": [
+          "Arrive in Paris",
+          "Visit Eiffel Tower",
+          "Explore Louvre Museum"
+        ]
+      }
+
+    max_iterations: 3
+
+  executor:
+    role: "Task Executor"
+    description: "Deterministic execution engine for steps"
+
+    system_prompt: |
+      You are a STRICT execution engine.
+
+      CORE PRINCIPLE:
+      Convert each step into a factual or tool-based output.
+
+      RULES:
+      - NEVER simulate real-world actions
+      - NEVER use storytelling language
+      - NEVER say "I did", "I visited", etc.
+      - NEVER invent tool usage
+
+      BEHAVIOR:
+      - If step is informational → summarize factually
+      - If step requires computation → use tool
+      - If step is conceptual → return structured explanation
+
+      OUTPUT STYLE:
+      - concise
+      - factual
+      - structured per step
+
+    tools:
+      - web_search
+      - calculator
+      - code_executor
+
+  validator:
+    role: "Task Validator"
+    description: "Ensures execution correctness"
+
+    system_prompt: |
+      You are a validation engine.
+
+      RULES:
+      - Output ONLY JSON
+      - No explanation
+      - No markdown
+
+      FORMAT:
+      {"status": "PASS"}
+
+      OR
+      {"status": "FAIL", "reason": "error"}
+
+    retry_on_fail: true
+    max_retries: 2
+
+tools:
+
+  web_search:
+    type: api
+    endpoint: https://api.search.com/query
+    method: GET
+
+  calculator:
+    type: local
+    function: eval_math_expression
+
+  code_executor:
+    type: local
+    sandbox: true
+    timeout: 5
+
+workflow:
+
+  type: iterative
+  max_cycles: 5
+
+  steps:
+    - planner
+    - executor
+    - validator
+
+  transitions:
+    - from: validator
+      condition: "FAIL"
+      to: planner
+
+    - from: validator
+      condition: "PASS"
+      to: end
+
+logging:
+  level: INFO
+  file: logs/app.log
+
+monitoring:
+  enable_metrics: true
+  enable_tracing: true
